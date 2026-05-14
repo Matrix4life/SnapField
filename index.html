@@ -6,20 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SnapField">
 <title>SnapField - Pocket Puzzle</title>
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<meta name="theme-color" content="#0f172a">
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js');
-    });
-  }
-</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&display=swap');
   
@@ -983,7 +970,7 @@
       bombBtn.classList.add('powerup-active');
       showToast('💣 Bomb Active', 'Click a cell to clear 3×3 area');
       sounds.powerup();
-      vibrate(50);
+      vibrate(150);
     }
   });
   
@@ -994,7 +981,7 @@
       rowBtn.classList.add('powerup-active');
       showToast('↔️ Row Clear Active', 'Click any row to clear it');
       sounds.powerup();
-      vibrate(50);
+      vibrate(150);
     }
   });
   
@@ -1005,7 +992,7 @@
       colBtn.classList.add('powerup-active');
       showToast('↕️ Column Clear Active', 'Click any column to clear it');
       sounds.powerup();
-      vibrate(50);
+      vibrate(150);
     }
   });
   
@@ -1017,7 +1004,7 @@
       updatePowerupUI();
       showToast('🔄 Pieces Shuffled!', 'Fresh pieces ready');
       sounds.powerup();
-      vibrate(50);
+      vibrate(150);
     }
   });
   
@@ -1121,28 +1108,32 @@
   }
   
   function vibrate(pattern) {
-    if (!navigator.vibrate) return;
-    
-    // Handle both single values and arrays
-    try {
-      if (typeof pattern === 'number') {
-        navigator.vibrate(pattern);
-      } else if (Array.isArray(pattern)) {
-        navigator.vibrate(pattern);
-      }
-    } catch (e) {
-      console.log('Vibration not supported');
+    // NativeHaptics is injected by MainActivity via addJavascriptInterface.
+    // It calls Android's Vibrator service directly — bypasses silent mode.
+    if (window.NativeHaptics) {
+      try {
+        const arg = Array.isArray(pattern) ? JSON.stringify(pattern) : String(pattern);
+        window.NativeHaptics.vibrate(arg);
+      } catch(e) {}
+      return;
+    }
+    // Fallback for browser/PWA
+    if (navigator.vibrate) {
+      try {
+        navigator.vibrate(0);
+        setTimeout(() => {
+          if (typeof pattern === 'number') navigator.vibrate(pattern);
+          else if (Array.isArray(pattern)) navigator.vibrate(pattern);
+        }, 10);
+      } catch(e) {}
     }
   }
-  
-  // Test vibration on first user interaction
+
   let vibrateInitialized = false;
   function initVibration() {
-    if (!vibrateInitialized && navigator.vibrate) {
-      vibrateInitialized = true;
-      // Small test vibration to wake up the API
-      navigator.vibrate(1);
-    }
+    if (vibrateInitialized) return;
+    vibrateInitialized = true;
+    vibrate(10);
   }
   
   // Particle system
@@ -1553,7 +1544,7 @@
     if (rewardMessage) {
       showToast(rewardMessage[0], rewardMessage[1]);
       sounds.powerup();
-      vibrate([80, 40, 120]); // bomb earned — heavy thud
+      vibrate([200, 60, 250]);
     }
   }
 
@@ -1596,7 +1587,7 @@
       
       showToast('🎯 Level Up!', message);
       sounds.combo();
-      vibrate([50, 50, 50]);
+      vibrate([150, 50, 150]);
       
       // Visual flash warning
       canvas.parentElement.classList.add('shake');
@@ -1785,7 +1776,7 @@
         const pt = clientToCanvas(e.clientX, e.clientY);
         dragging = { piece: p, idx, x: pt.x, y: pt.y };
         hoverCell = pointerToGrid(e.clientX, e.clientY, { isTouch: e.pointerType === 'touch' });
-        vibrate(10); // Light haptic feedback on pickup
+        vibrate(80);
         if (e.cancelable) e.preventDefault();
       });
       
@@ -1797,7 +1788,7 @@
         const pt = clientToCanvas(t.clientX, t.clientY);
         dragging = { piece: p, idx, x: pt.x, y: pt.y };
         hoverCell = pointerToGrid(t.clientX, t.clientY, { isTouch: true });
-        vibrate(10); // Light haptic feedback on pickup
+        vibrate(80);
         if (e.cancelable) e.preventDefault();
       }, { passive: false });
       
@@ -1823,7 +1814,7 @@
       
       // Sound and haptic feedback
       sounds.place();
-      vibrate([40, 20, 25]); // crisp double-tap snap feel
+      vibrate(150);
       
       // Create particles at placement
       const s = cellSize();
@@ -1867,10 +1858,10 @@
         // Sound effects
         if (comboCount > 1) {
           sounds.combo();
-          vibrate([60, 30, 60, 30, 80]); // escalating combo rumble
+          vibrate([150, 50, 150]);
         } else {
           sounds.snap();
-          vibrate([50, 20, 50]); // satisfying row-clear double-buzz
+          vibrate(150);
         }
         
         // Create explosion particles at captured blocks
@@ -1887,7 +1878,7 @@
         if (size >= 6) {
           canvas.parentElement.classList.add('shake');
           setTimeout(() => canvas.parentElement.classList.remove('shake'), 300);
-          vibrate([50, 50, 50, 50]);
+          vibrate([150, 60, 150, 60]);
         }
         
         showToast(
@@ -1919,7 +1910,7 @@
       
       if (!anyMoveAvailable()) {
         sounds.gameOver();
-        vibrate(200);
+        vibrate(300);
         setGameOver(true);
       }
     }
@@ -1937,7 +1928,7 @@
     if (!cell) return;
     
     sounds.powerup();
-    vibrate([30, 30, 30]);
+    vibrate([150, 50, 150]);
     
     if (activePowerup === 'bomb') {
       // Clear 3×3 area - NOW CLEARS ALL TILE TYPES
@@ -2310,92 +2301,5 @@
   requestAnimationFrame(tick);
 })();
 </script>
-
-<!-- ── PWA Install Banner ── -->
-<div id="installBanner" style="
-  display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999;
-  background:linear-gradient(135deg,#1e3a5f,#0f172a);
-  border-top:1px solid rgba(59,130,246,0.4);
-  padding:14px 20px; align-items:center; gap:14px;
-  box-shadow:0 -4px 24px rgba(0,0,0,0.5);
-  font-family:-apple-system,BlinkMacSystemFont,sans-serif;">
-  <div style="width:40px;height:40px;border-radius:10px;background:#1e3a5f;
-    border:1.5px solid #3b82f6;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <polygon points="13,2 13,15 17,11 17,13 12,18 7,13 7,11 11,15 11,2" fill="#60a5fa"/>
-      <rect x="4" y="19" width="16" height="2" rx="1" fill="#60a5fa"/>
-    </svg>
-  </div>
-  <div style="flex:1;min-width:0">
-    <div style="color:#e8f0ff;font-size:14px;font-weight:600;line-height:1.2">Install SnapField</div>
-    <div style="color:#64748b;font-size:12px;margin-top:2px">Play offline, fullscreen, no browser bar</div>
-  </div>
-  <button id="installBtn" style="
-    background:#3b82f6;color:#fff;border:none;border-radius:10px;
-    padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;
-    white-space:nowrap;flex-shrink:0">
-    Install
-  </button>
-  <button id="installDismiss" style="
-    background:none;border:none;color:#64748b;font-size:20px;
-    cursor:pointer;padding:4px;line-height:1;flex-shrink:0">✕</button>
-</div>
-
-<script>
-(function() {
-  let deferredPrompt = null;
-  const banner = document.getElementById('installBanner');
-  const installBtn = document.getElementById('installBtn');
-  const dismissBtn = document.getElementById('installDismiss');
-
-  // Don't show if already installed (running as standalone)
-  if (window.matchMedia('(display-mode: standalone)').matches ||
-      window.navigator.standalone === true) return;
-
-  // Don't show if dismissed before
-  if (localStorage.getItem('snapfield_install_dismissed') === 'true') return;
-
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    // Wait 8 seconds before showing (let user get into the game first)
-    setTimeout(() => {
-      banner.style.display = 'flex';
-    }, 8000);
-  });
-
-  installBtn.addEventListener('click', async () => {
-    if (!deferredPrompt) return;
-    banner.style.display = 'none';
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    if (outcome === 'accepted') {
-      if (navigator.vibrate) navigator.vibrate([40, 20, 80]);
-    }
-  });
-
-  dismissBtn.addEventListener('click', () => {
-    banner.style.display = 'none';
-    localStorage.setItem('snapfield_install_dismissed', 'true');
-  });
-
-  // Also handle iOS (no beforeinstallprompt — show a hint instead)
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  const isInStandaloneMode = window.navigator.standalone;
-  if (isIOS && !isInStandaloneMode &&
-      localStorage.getItem('snapfield_install_dismissed') !== 'true') {
-    setTimeout(() => {
-      banner.style.display = 'flex';
-      installBtn.textContent = 'How to Install';
-      installBtn.onclick = () => {
-        alert('To install on iPhone:\n\n1. Tap the Share button (□↑) at the bottom of Safari\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" — done!');
-        banner.style.display = 'none';
-      };
-    }, 8000);
-  }
-})();
-</script>
-
 </body>
 </html>
